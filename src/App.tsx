@@ -7,7 +7,6 @@ import './index.css'
 type Result = 'HEADS' | 'TAILS' | null
 
 type PhysicsState = {
-  t: number
   y: number
   vy: number
   angle: number
@@ -18,8 +17,9 @@ type PhysicsState = {
 }
 
 const GRAVITY = -12.5
-const FLOOR_Y = 0.92
+const FLOOR_Y = 1.04
 const COIN_RADIUS = 1
+const COIN_THICKNESS = 0.24
 const RESTITUTION = 0.48
 const AIR_DRAG = 0.32
 const SPIN_DRAG = 0.18
@@ -34,11 +34,10 @@ function Coin({ running, speed, onFinish }: { running: boolean; speed: number; o
     if (running && !lastRunning.current) {
       const outcome: Exclude<Result, null> = Math.random() < 0.5 ? 'HEADS' : 'TAILS'
       state.current = {
-        t: 0,
         y: 7,
         vy: 0.8,
         angle: 0,
-        angularVelocity: (18 + Math.random() * 6) * (Math.random() < 0.5 ? 1 : -1),
+        angularVelocity: (19 + Math.random() * 5) * (Math.random() < 0.5 ? 1 : -1),
         bounceCount: 0,
         settled: false,
         result: outcome,
@@ -53,9 +52,7 @@ function Coin({ running, speed, onFinish }: { running: boolean; speed: number; o
     const p = state.current
     if (!coin || !p || !running || p.settled) return
 
-    // Semi-implicit Euler integration. Speed changes simulation time, not the physics constants.
-    const dt = Math.min(rawDelta, 1 / 30) * speed
-    p.t += dt
+    const dt = Math.min(rawDelta, 1 / 60) * speed
     p.vy += GRAVITY * dt
     p.vy *= Math.exp(-AIR_DRAG * dt)
     p.y += p.vy * dt
@@ -73,58 +70,81 @@ function Coin({ running, speed, onFinish }: { running: boolean; speed: number; o
         p.angularVelocity *= Math.max(0, 1 - 3.5 * dt)
         if (Math.abs(p.angularVelocity) < 0.08) {
           p.settled = true
+          // The coin is a cylinder whose circular faces are perpendicular to local Y.
+          // Flip around local X so the two faces never appear as a second perpendicular coin.
           p.angle = p.result === 'HEADS' ? 0 : Math.PI
+          coin.rotation.set(p.angle, 0, 0)
           onFinish(p.result)
         }
       }
     }
 
-    // The coin flips around its diameter (X), with subtle precession on the other axes.
-    const tilt = Math.min(0.22, Math.abs(p.vy) * 0.012 + Math.abs(p.angularVelocity) * 0.004)
+    const airborneTilt = Math.min(0.13, Math.abs(p.vy) * 0.006 + Math.abs(p.angularVelocity) * 0.0025)
     coin.position.y = p.y
-    coin.rotation.set(p.angle, tilt * Math.cos(p.t * 4.2), tilt * Math.sin(p.t * 5))
+    coin.rotation.set(p.angle, airborneTilt * Math.cos(p.angle * 0.7), airborneTilt * Math.sin(p.angle * 0.9))
   })
 
   return (
     <group ref={group} position={[0, FLOOR_Y, 0]}>
+      {/* A single cylinder is the physical coin body. Its faces are on local +/-Y. */}
       <mesh castShadow receiveShadow>
-        <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, 0.24, 96]} />
-        <meshStandardMaterial color="#c89b3c" metalness={0.92} roughness={0.2} />
+        <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, 96, 8]} />
+        <meshStandardMaterial color="#b67b22" metalness={0.96} roughness={0.19} />
       </mesh>
-      <mesh position={[0, 0.13, 0]}>
-        <circleGeometry args={[0.82, 64]} />
-        <meshStandardMaterial color="#f1c75b" metalness={0.8} roughness={0.18} />
-      </mesh>
-      <mesh position={[0, -0.13, 0]} rotation={[Math.PI, 0, 0]}>
-        <circleGeometry args={[0.82, 64]} />
-        <meshStandardMaterial color="#a87822" metalness={0.85} roughness={0.2} />
-      </mesh>
-      <Text position={[0, 0.145, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.48} color="#6f4a12" anchorX="center" anchorY="middle">
-        {result === 'HEADS' ? 'H' : 'T'}
-      </Text>
+
+      {/* Heads face: inset gold disc + raised rim + emblem. */}
+      <group position={[0, COIN_THICKNESS / 2 + 0.006, 0]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.86, 0.86, 0.035, 96]} />
+          <meshStandardMaterial color="#f2c75b" metalness={0.92} roughness={0.16} />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.024, 0]}>
+          <torusGeometry args={[0.68, 0.055, 12, 96]} />
+          <meshStandardMaterial color="#a96e17" metalness={0.95} roughness={0.2} />
+        </mesh>
+        <Text position={[0, 0.045, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.56} color="#795016" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#f8d878">
+          H
+        </Text>
+      </group>
+
+      {/* Tails face: darker inset and a clearly different engraved emblem. */}
+      <group position={[0, -COIN_THICKNESS / 2 - 0.006, 0]} rotation={[Math.PI, 0, 0]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.86, 0.86, 0.035, 96]} />
+          <meshStandardMaterial color="#d59a2f" metalness={0.9} roughness={0.2} />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.024, 0]}>
+          <torusGeometry args={[0.68, 0.055, 12, 96]} />
+          <meshStandardMaterial color="#8a5916" metalness={0.95} roughness={0.22} />
+        </mesh>
+        <Text position={[0, 0.045, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.5} color="#744b12" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#efc35a">
+          T
+        </Text>
+      </group>
     </group>
   )
 }
 
 function Scene({ running, speed, onFinish }: { running: boolean; speed: number; onFinish: (result: Exclude<Result, null>) => void }) {
   return (
-    <Canvas shadows camera={{ position: [0, 4.6, 10], fov: 38 }} dpr={[1, 2]}>
-      <color attach="background" args={['#07090d']} />
-      <fog attach="fog" args={['#07090d', 12, 24]} />
-      <ambientLight intensity={0.55} />
-      <spotLight position={[4, 10, 6]} angle={0.32} penumbra={0.7} intensity={140} castShadow shadow-mapSize={[2048, 2048]} />
-      <pointLight position={[-5, 3, 2]} intensity={35} color="#4f7cff" />
+    <Canvas shadows camera={{ position: [0, 4.8, 10], fov: 38 }} dpr={[1, 2]}>
+      <color attach="background" args={['#06080c']} />
+      <fog attach="fog" args={['#06080c', 11, 24]} />
+      <ambientLight intensity={0.48} />
+      <spotLight position={[4, 10, 5]} angle={0.3} penumbra={0.72} intensity={150} castShadow shadow-mapSize={[2048, 2048]} />
+      <pointLight position={[-5, 4, 3]} intensity={42} color="#5478ff" />
+      <pointLight position={[4, 2, -4]} intensity={20} color="#ffb52e" />
       <Environment preset="studio" />
       <RoundedBox args={[11, 0.45, 7]} radius={0.22} smoothness={6} position={[0, 0.68, 0]} receiveShadow>
-        <meshStandardMaterial color="#11151c" metalness={0.55} roughness={0.38} />
+        <meshStandardMaterial color="#0e131a" metalness={0.62} roughness={0.32} />
       </RoundedBox>
       <mesh position={[0, 0.91, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[10.5, 6.5]} />
-        <meshStandardMaterial color="#171c24" metalness={0.25} roughness={0.65} />
+        <meshStandardMaterial color="#151a22" metalness={0.3} roughness={0.6} />
       </mesh>
-      <ContactShadows position={[0, 0.93, 0]} opacity={0.6} scale={8} blur={2.8} far={4} />
+      <ContactShadows position={[0, 0.94, 0]} opacity={0.72} scale={8} blur={2.6} far={4} />
       <Coin running={running} speed={speed} onFinish={onFinish} />
-      <OrbitControls enablePan={false} minDistance={7} maxDistance={14} maxPolarAngle={Math.PI / 2.15} />
+      <OrbitControls enablePan={false} minDistance={7} maxDistance={14} maxPolarAngle={Math.PI / 2.12} />
     </Canvas>
   )
 }
