@@ -1,163 +1,105 @@
 import { Canvas, useFrame } from '@react-three/fiber'
 import { ContactShadows, Environment, OrbitControls, RoundedBox, Text } from '@react-three/drei'
-import { Physics, RigidBody, CuboidCollider, CylinderCollider, RapierRigidBody } from '@react-three/rapier'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import './index.css'
 
 type Result = 'HEADS' | 'TAILS' | null
 
-const FLOOR_TOP = 0.91
-const FLOOR_THICKNESS = 0.45
-const COIN_RADIUS = 1
-const COIN_HALF_THICKNESS = 0.12
-const COIN_CENTER_Y = FLOOR_TOP + COIN_HALF_THICKNESS + 3.7
-const ARENA_X = 5.25
-const ARENA_Z = 3.25
-const WALL_HEIGHT = 1.4
-const WALL_THICKNESS = 0.25
-
-// This is a real simulation-time multiplier. 1 = normal realtime physics.
-// Changing it changes the actual rigid-body motion, not just the UI label.
 const BASE_SPEED = 5
 const MAX_SPEED = BASE_SPEED * 4
-const PHYSICS_HZ = 120
+const DURATION = 1.55
+const START_Y = 5.2
+const TARGET_Y = 1.03
+const COIN_RADIUS = 1
+const COIN_THICKNESS = 0.24
+
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
+const easeOutCubic = (v: number) => 1 - Math.pow(1 - v, 3)
+const easeInOutCubic = (v: number) => v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2
 
 function Coin({ running, speed, result, onFinish }: { running: boolean; speed: number; result: Exclude<Result, null> | null; onFinish: (result: Exclude<Result, null>) => void }) {
-  const body = useRef<RapierRigidBody>(null)
-  const visual = useRef<THREE.Group>(null)
-  const [settled, setSettled] = useState(false)
+  const group = useRef<THREE.Group>(null)
+  const elapsed = useRef(0)
   const previousRunning = useRef(false)
-  const settledTime = useRef(0)
+  const finished = useRef(false)
+  const spinDirection = useRef(1)
+  const startYaw = useRef(0)
 
   useEffect(() => {
-    if (!running || previousRunning.current || !result) return
-    const rb = body.current
-    if (!rb) return
-
-    rb.setTranslation({ x: 0, y: COIN_CENTER_Y, z: 0 }, true)
-    rb.setRotation(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, (Math.random() - 0.5) * 0.25)), true)
-
-    const direction = Math.random() < 0.5 ? -1 : 1
-    const linearScale = speed
-    const angularScale = speed
-
-    // Scale the launch velocities with simulation speed. Rapier still advances at a
-    // stable fixed 120 Hz timestep, so changing speed cannot make the timestep unstable.
-    rb.setLinvel({
-      x: (Math.random() - 0.5) * 1.2 * linearScale,
-      y: 0.5 * linearScale,
-      z: (Math.random() - 0.5) * 1.2 * linearScale,
-    }, true)
-    rb.setAngvel({
-      x: direction * (18 + Math.random() * 5) * angularScale,
-      y: (Math.random() - 0.5) * 1.5 * angularScale,
-      z: (Math.random() - 0.5) * 1.2 * angularScale,
-    }, true)
-    rb.wakeUp()
-    setSettled(false)
-    settledTime.current = 0
-    previousRunning.current = true
-  }, [running, result, speed])
-
-  useEffect(() => {
+    if (running && !previousRunning.current && result) {
+      elapsed.current = 0
+      finished.current = false
+      spinDirection.current = Math.random() < 0.5 ? -1 : 1
+      startYaw.current = (Math.random() - 0.5) * 0.16
+      previousRunning.current = true
+    }
     if (!running) previousRunning.current = false
-  }, [running])
+  }, [running, result])
 
-  useFrame((_, delta) => {
-    const rb = body.current
-    const v = visual.current
-    if (!rb || !v || !running) return
+  useFrame((_, rawDelta) => {
+    const coin = group.current
+    if (!coin || !running || !result || finished.current) return
 
-    const t = rb.translation()
-    const q = rb.rotation()
-    v.position.set(t.x, t.y, t.z)
-    v.quaternion.set(q.x, q.y, q.z, q.w)
+    // The render-loop clock is the only animation clock. Speed scales the complete timeline:
+    // drop, rotation, approach to the target and final settling all advance together.
+    elapsed.current += Math.min(rawDelta, 0.05) * speed
+    const progress = clamp01(elapsed.current / DURATION)
 
-    const linvel = rb.linvel()
-    const angvel = rb.angvel()
-    const speedLinear = Math.hypot(linvel.x, linvel.y, linvel.z)
-    const speedAngular = Math.hypot(angvel.x, angvel.y, angvel.z)
+    coin.position.y = THREE.MathUtils.lerp(START_Y, TARGET_Y, easeOutCubic(progress))
 
-    if (!settled && Math.abs(t.y - (FLOOR_TOP + COIN_HALF_THICKNESS)) < 0.035 && speedLinear < 0.16 * speed && speedAngular < 0.16 * speed) {
-      settledTime.current += delta * speed
-      if (settledTime.current > 0.22) {
-        rb.setLinvel({ x: 0, y: 0, z: 0 }, true)
-        rb.setAngvel({ x: 0, y: 0, z: 0 }, true)
-        setSettled(true)
-        onFinish(result!)
-      }
+    const fullRotations = 5.5
+    const spinAngle = spinDirection.current * Math.PI * 2 * fullRotations * progress
+    const wobbleAmount = (1 - progress) * 0.18
+    const wobble = Math.sin(progress * Math.PI * 7) * wobbleAmount
+
+    if (progress < 0.78) {
+      coin.rotation.set(spinAngle, startYaw.current + wobble * 0.5, wobble)
     } else {
-      settledTime.current = 0
+      const settleT = easeInOutCubic((progress - 0.78) / 0.22)
+      const targetX = result === 'HEADS' ? 0 : Math.PI
+      const rotationsToTarget = Math.round((spinAngle - targetX) / (Math.PI * 2))
+      const finalAngle = THREE.MathUtils.lerp(spinAngle, targetX + rotationsToTarget * Math.PI * 2, settleT)
+      coin.rotation.set(finalAngle, THREE.MathUtils.lerp(startYaw.current + wobble * 0.5, 0, settleT), THREE.MathUtils.lerp(wobble, 0, settleT))
+    }
+
+    if (progress >= 1) {
+      coin.position.set(0, TARGET_Y, 0)
+      coin.rotation.set(result === 'HEADS' ? 0 : Math.PI, 0, 0)
+      finished.current = true
+      onFinish(result)
     }
   })
 
   return (
-    <>
-      <RigidBody
-        ref={body}
-        type="dynamic"
-        colliders={false}
-        ccd
-        canSleep
-        restitution={0.28}
-        friction={0.68}
-        linearDamping={0.08 * speed}
-        angularDamping={0.38 * speed}
-        mass={0.25}
-        position={[0, COIN_CENTER_Y, 0]}
-        enabledRotations={[true, true, true]}
-        gravityScale={speed * speed}
-      >
-        <CylinderCollider args={[COIN_HALF_THICKNESS, COIN_RADIUS]} restitution={0.28} friction={0.68} />
-      </RigidBody>
-
-      <group ref={visual} castShadow>
-        <mesh castShadow receiveShadow>
-          <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_HALF_THICKNESS * 2, 96, 8]} />
-          <meshStandardMaterial color="#b67b22" metalness={0.96} roughness={0.19} />
+    <group ref={group} position={[0, START_Y, 0]}>
+      <mesh castShadow receiveShadow>
+        <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, 96, 8]} />
+        <meshStandardMaterial color="#b67b22" metalness={0.96} roughness={0.19} />
+      </mesh>
+      <group position={[0, COIN_THICKNESS / 2 + 0.004, 0]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.86, 96]} />
+          <meshStandardMaterial color="#f2c75b" metalness={0.92} roughness={0.16} side={THREE.DoubleSide} />
         </mesh>
-        <group position={[0, COIN_HALF_THICKNESS + 0.004, 0]}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.86, 96]} />
-            <meshStandardMaterial color="#f2c75b" metalness={0.92} roughness={0.16} side={THREE.FrontSide} />
-          </mesh>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]}>
-            <torusGeometry args={[0.68, 0.055, 12, 96]} />
-            <meshStandardMaterial color="#a96e17" metalness={0.95} roughness={0.2} />
-          </mesh>
-          <Text position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.56} color="#795016" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#f8d878">H</Text>
-        </group>
-        <group position={[0, -COIN_HALF_THICKNESS - 0.004, 0]} rotation={[Math.PI, 0, 0]}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.86, 96]} />
-            <meshStandardMaterial color="#d59a2f" metalness={0.9} roughness={0.2} side={THREE.FrontSide} />
-          </mesh>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]}>
-            <torusGeometry args={[0.68, 0.055, 12, 96]} />
-            <meshStandardMaterial color="#8a5916" metalness={0.95} roughness={0.22} />
-          </mesh>
-          <Text position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.5} color="#744b12" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#efc35a">T</Text>
-        </group>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]}>
+          <torusGeometry args={[0.68, 0.055, 12, 96]} />
+          <meshStandardMaterial color="#a96e17" metalness={0.95} roughness={0.2} />
+        </mesh>
+        <Text position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.56} color="#795016" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#f8d878">H</Text>
       </group>
-    </>
-  )
-}
-
-function Arena({ running, speed, result, onFinish }: { running: boolean; speed: number; result: Exclude<Result, null> | null; onFinish: (result: Exclude<Result, null>) => void }) {
-  return (
-    <Physics gravity={[0, -12.5, 0]} timeStep={1 / PHYSICS_HZ} interpolate updatePriority={-1}>
-      <RigidBody type="fixed" colliders={false} friction={0.82} restitution={0.2}>
-        <CuboidCollider args={[5.5, FLOOR_THICKNESS / 2, 3.5]} position={[0, FLOOR_TOP - FLOOR_THICKNESS / 2, 0]} friction={0.82} restitution={0.2} />
-      </RigidBody>
-      <RigidBody type="fixed" colliders={false}>
-        <CuboidCollider args={[WALL_THICKNESS, WALL_HEIGHT, ARENA_Z]} position={[-ARENA_X - WALL_THICKNESS, FLOOR_TOP + WALL_HEIGHT, 0]} />
-        <CuboidCollider args={[WALL_THICKNESS, WALL_HEIGHT, ARENA_Z]} position={[ARENA_X + WALL_THICKNESS, FLOOR_TOP + WALL_HEIGHT, 0]} />
-        <CuboidCollider args={[ARENA_X, WALL_HEIGHT, WALL_THICKNESS]} position={[0, FLOOR_TOP + WALL_HEIGHT, -ARENA_Z - WALL_THICKNESS]} />
-        <CuboidCollider args={[ARENA_X, WALL_HEIGHT, WALL_THICKNESS]} position={[0, FLOOR_TOP + WALL_HEIGHT, ARENA_Z + WALL_THICKNESS]} />
-      </RigidBody>
-      <Coin running={running} speed={speed} result={result} onFinish={onFinish} />
-    </Physics>
+      <group position={[0, -COIN_THICKNESS / 2 - 0.004, 0]} rotation={[Math.PI, 0, 0]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.86, 96]} />
+          <meshStandardMaterial color="#d59a2f" metalness={0.9} roughness={0.2} side={THREE.DoubleSide} />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]}>
+          <torusGeometry args={[0.68, 0.055, 12, 96]} />
+          <meshStandardMaterial color="#8a5916" metalness={0.95} roughness={0.22} />
+        </mesh>
+        <Text position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.5} color="#744b12" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#efc35a">T</Text>
+      </group>
+    </group>
   )
 }
 
@@ -179,7 +121,7 @@ function Scene({ running, speed, result, onFinish }: { running: boolean; speed: 
         <meshStandardMaterial color="#151a22" metalness={0.3} roughness={0.6} />
       </mesh>
       <ContactShadows position={[0, 0.94, 0]} opacity={0.72} scale={8} blur={2.6} far={4} />
-      <Arena running={running} speed={speed} result={result} onFinish={onFinish} />
+      <Coin running={running} speed={speed} result={result} onFinish={onFinish} />
       <OrbitControls enablePan={false} minDistance={7} maxDistance={14} maxPolarAngle={Math.PI / 2.12} />
     </Canvas>
   )
@@ -217,7 +159,7 @@ function App() {
 
   return (
     <main className="app-shell">
-      <header className="topbar"><div><span className="eyebrow">THREE.JS PHYSICS LAB</span><h1>Coin Flip</h1></div><div className="stats"><span>FLIPS</span><strong>{flips}</strong></div></header>
+      <header className="topbar"><div><span className="eyebrow">THREE.JS COIN FLIP</span><h1>Coin Flip</h1></div><div className="stats"><span>FLIPS</span><strong>{flips}</strong></div></header>
       <section className="game-card">
         <div className="viewport"><Scene running={running} speed={speed} result={result} onFinish={finish} /></div>
         <div className="hud">
@@ -225,8 +167,8 @@ function App() {
           <button className="flip-button" onClick={flip} disabled={running}>{running ? 'FLIPPING…' : 'FLIP COIN'}</button>
           <div className="speed-control">
             <div className="speed-label"><span>ANIMATION SPEED</span><strong>{speed}×</strong></div>
-            <input aria-label="Animation speed" type="range" min={BASE_SPEED} max={MAX_SPEED} step={BASE_SPEED} value={speed} onChange={(e) => setSpeed(Number(e.target.value))} />
-            <div className="speed-ticks"><span>{BASE_SPEED}× REALTIME</span><span>{MAX_SPEED}× FAST</span></div>
+            <input aria-label="Animation speed" type="range" min={1} max={4} step={1} value={speed} onChange={(e) => setSpeed(Number(e.target.value))} />
+            <div className="speed-ticks"><span>1× BASE</span><span>4× FAST</span></div>
           </div>
         </div>
       </section>
