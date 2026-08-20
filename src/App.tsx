@@ -41,18 +41,9 @@ function Face({ type }: { type: 'HEADS' | 'TAILS' }) {
         anchorY="middle"
         outlineWidth={0.018}
         outlineColor="#f7d878"
+        scale={isHeads ? [1, 1, 1] : [-1, 1, 1]}
       >
         {isHeads ? 'H' : 'T'}
-      </Text>
-      <Text
-        position={[0, isHeads ? -0.64 : 0.64, 0.018]}
-        rotation={[Math.PI / 2, 0, 0]}
-        fontSize={0.12}
-        color="#70470d"
-        anchorX="center"
-        anchorY="middle"
-      >
-        {isHeads ? 'HEADS' : 'TAILS'}
       </Text>
       <Text
         position={[0, isHeads ? 0.64 : -0.64, 0.018]}
