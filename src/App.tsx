@@ -12,6 +12,7 @@ const START_Y = 4.5
 const CENTER_Y = 0
 const COIN_RADIUS = 1
 const COIN_THICKNESS = 0.24
+const COIN_SIDES = 7
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 const easeOutCubic = (v: number) => 1 - Math.pow(1 - v, 3)
@@ -21,15 +22,15 @@ function Face({ type }: { type: 'HEADS' | 'TAILS' }) {
   return (
     <group position={[0, isHeads ? COIN_THICKNESS / 2 + 0.006 : -COIN_THICKNESS / 2 - 0.006, 0]} rotation={isHeads ? [0, 0, 0] : [Math.PI, 0, 0]}>
       <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.87, 96]} />
+        <circleGeometry args={[0.87, COIN_SIDES]} />
         <meshStandardMaterial color={isHeads ? '#f4c95d' : '#d9a33a'} metalness={0.94} roughness={0.2} side={THREE.DoubleSide} />
       </mesh>
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.008]}>
-        <ringGeometry args={[0.73, 0.78, 96]} />
+        <ringGeometry args={[0.73, 0.78, COIN_SIDES]} />
         <meshStandardMaterial color="#8b5b17" metalness={0.92} roughness={0.22} side={THREE.DoubleSide} />
       </mesh>
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.01]}>
-        <ringGeometry args={[0.80, 0.835, 96]} />
+        <ringGeometry args={[0.80, 0.835, COIN_SIDES]} />
         <meshStandardMaterial color="#f0bd48" metalness={0.88} roughness={0.2} side={THREE.DoubleSide} />
       </mesh>
       <Text
@@ -103,7 +104,7 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
       <group rotation={[Math.PI / 2, 0, 0]}>
         <group ref={coinRotation}>
           <mesh>
-            <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, 96, 8]} />
+            <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, COIN_SIDES, 2]} />
             <meshStandardMaterial color="#b67b22" metalness={0.96} roughness={0.19} />
           </mesh>
           <Face type="HEADS" />
