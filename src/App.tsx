@@ -16,6 +16,58 @@ const COIN_THICKNESS = 0.24
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 const easeOutCubic = (v: number) => 1 - Math.pow(1 - v, 3)
 
+function Face({ type }: { type: 'HEADS' | 'TAILS' }) {
+  const isHeads = type === 'HEADS'
+  return (
+    <group position={[0, isHeads ? COIN_THICKNESS / 2 + 0.006 : -COIN_THICKNESS / 2 - 0.006, 0]} rotation={isHeads ? [0, 0, 0] : [Math.PI, 0, 0]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.87, 96]} />
+        <meshStandardMaterial color={isHeads ? '#f4c95d' : '#d9a33a'} metalness={0.94} roughness={0.2} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.008]}>
+        <ringGeometry args={[0.73, 0.78, 96]} />
+        <meshStandardMaterial color="#8b5b17" metalness={0.92} roughness={0.22} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.01]}>
+        <ringGeometry args={[0.80, 0.835, 96]} />
+        <meshStandardMaterial color="#f0bd48" metalness={0.88} roughness={0.2} side={THREE.DoubleSide} />
+      </mesh>
+      <Text
+        position={[0, 0, 0.018]}
+        rotation={[Math.PI / 2, 0, 0]}
+        fontSize={isHeads ? 0.56 : 0.50}
+        color="#71460c"
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.018}
+        outlineColor="#f7d878"
+      >
+        {isHeads ? 'H' : 'T'}
+      </Text>
+      <Text
+        position={[0, isHeads ? -0.64 : 0.64, 0.018]}
+        rotation={[Math.PI / 2, 0, 0]}
+        fontSize={0.12}
+        color="#70470d"
+        anchorX="center"
+        anchorY="middle"
+      >
+        {isHeads ? 'HEADS' : 'TAILS'}
+      </Text>
+      <Text
+        position={[0, isHeads ? 0.64 : -0.64, 0.018]}
+        rotation={[Math.PI / 2, 0, 0]}
+        fontSize={0.10}
+        color="#8a5b17"
+        anchorX="center"
+        anchorY="middle"
+      >
+        ★ ★ ★
+      </Text>
+    </group>
+  )
+}
+
 function Coin({ running, speed, result, onFinish }: { running: boolean; speed: number; result: Exclude<Result, null> | null; onFinish: (result: Exclude<Result, null>) => void }) {
   const group = useRef<THREE.Group>(null)
   const coinRotation = useRef<THREE.Group>(null)
@@ -39,14 +91,8 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
 
     elapsed.current += Math.min(delta, 0.05) * speed
     const progress = clamp01(elapsed.current / DURATION)
-
-    // Scripted vertical drop only. There is no gravity, collision, bounce or physics.
     coin.position.set(0, THREE.MathUtils.lerp(START_Y, CENTER_Y, easeOutCubic(progress)), 0)
 
-    // The coin's physical axis is LOCAL Y. The parent below rotates that axis to Z,
-    // toward the camera. Therefore the actual flip must happen around LOCAL X (a
-    // horizontal axis in the camera view), NOT around LOCAL Y/Z. Rotating around Z
-    // would merely spin the face like a record and is the source of the wrong-axis look.
     const targetRotation = result === 'HEADS' ? 0 : Math.PI
     const turns = 5
     rotation.rotation.x = targetRotation + (1 - progress) * Math.PI * 2 * turns
@@ -63,32 +109,14 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
 
   return (
     <group ref={group} position={[0, START_Y, 0]}>
-      {/* CylinderGeometry has its face normal on local Y. Rotate it so the face normal
-          points toward the camera along Z. */}
       <group rotation={[Math.PI / 2, 0, 0]}>
-        {/* This group rotates around local X, which becomes the visible horizontal
-            flip axis after the parent orientation. */}
         <group ref={coinRotation}>
           <mesh>
             <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, 96, 8]} />
             <meshStandardMaterial color="#b67b22" metalness={0.96} roughness={0.19} />
           </mesh>
-
-          <group position={[0, COIN_THICKNESS / 2 + 0.006, 0]}>
-            <mesh rotation={[Math.PI / 2, 0, 0]}>
-              <circleGeometry args={[0.86, 96]} />
-              <meshStandardMaterial color="#f2c75b" metalness={0.92} roughness={0.16} side={THREE.DoubleSide} />
-            </mesh>
-            <Text position={[0, 0, 0.012]} rotation={[Math.PI / 2, 0, 0]} fontSize={0.56} color="#6d430d" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#f9d878">H</Text>
-          </group>
-
-          <group position={[0, -COIN_THICKNESS / 2 - 0.006, 0]} rotation={[Math.PI, 0, 0]}>
-            <mesh rotation={[Math.PI / 2, 0, 0]}>
-              <circleGeometry args={[0.86, 96]} />
-              <meshStandardMaterial color="#d59a2f" metalness={0.9} roughness={0.2} side={THREE.DoubleSide} />
-            </mesh>
-            <Text position={[0, 0, 0.012]} rotation={[Math.PI / 2, 0, 0]} fontSize={0.52} color="#70480f" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#efc35a">T</Text>
-          </group>
+          <Face type="HEADS" />
+          <Face type="TAILS" />
         </group>
       </group>
     </group>
