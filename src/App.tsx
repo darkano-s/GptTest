@@ -53,10 +53,9 @@ function Coin({ running, speed, onFinish }: { running: boolean; speed: number; o
     const p = state.current
     if (!coin || !p || !running || p.settled) return
 
+    // Semi-implicit Euler integration. Speed changes simulation time, not the physics constants.
     const dt = Math.min(rawDelta, 1 / 30) * speed
     p.t += dt
-
-    // Semi-implicit Euler integration: velocity is integrated first, then position.
     p.vy += GRAVITY * dt
     p.vy *= Math.exp(-AIR_DRAG * dt)
     p.y += p.vy * dt
@@ -75,29 +74,28 @@ function Coin({ running, speed, onFinish }: { running: boolean; speed: number; o
         if (Math.abs(p.angularVelocity) < 0.08) {
           p.settled = true
           p.angle = p.result === 'HEADS' ? 0 : Math.PI
-          setResult(p.result)
           onFinish(p.result)
         }
       }
     }
 
-    // A small precession tilt makes the coin read as a rigid body rather than a flat sprite.
+    // The coin flips around its diameter (X), with subtle precession on the other axes.
     const tilt = Math.min(0.22, Math.abs(p.vy) * 0.012 + Math.abs(p.angularVelocity) * 0.004)
     coin.position.y = p.y
-    coin.rotation.set(tilt * Math.sin(p.t * 5), p.angle, tilt * Math.cos(p.t * 4.2))
+    coin.rotation.set(p.angle, tilt * Math.cos(p.t * 4.2), tilt * Math.sin(p.t * 5))
   })
 
   return (
     <group ref={group} position={[0, FLOOR_Y, 0]}>
-      <mesh castShadow receiveShadow rotation={[Math.PI / 2, 0, 0]}>
+      <mesh castShadow receiveShadow>
         <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, 0.24, 96]} />
         <meshStandardMaterial color="#c89b3c" metalness={0.92} roughness={0.2} />
       </mesh>
-      <mesh position={[0, 0.13, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh position={[0, 0.13, 0]}>
         <circleGeometry args={[0.82, 64]} />
         <meshStandardMaterial color="#f1c75b" metalness={0.8} roughness={0.18} />
       </mesh>
-      <mesh position={[0, -0.13, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, -0.13, 0]} rotation={[Math.PI, 0, 0]}>
         <circleGeometry args={[0.82, 64]} />
         <meshStandardMaterial color="#a87822" metalness={0.85} roughness={0.2} />
       </mesh>
@@ -117,7 +115,6 @@ function Scene({ running, speed, onFinish }: { running: boolean; speed: number; 
       <spotLight position={[4, 10, 6]} angle={0.32} penumbra={0.7} intensity={140} castShadow shadow-mapSize={[2048, 2048]} />
       <pointLight position={[-5, 3, 2]} intensity={35} color="#4f7cff" />
       <Environment preset="studio" />
-
       <RoundedBox args={[11, 0.45, 7]} radius={0.22} smoothness={6} position={[0, 0.68, 0]} receiveShadow>
         <meshStandardMaterial color="#11151c" metalness={0.55} roughness={0.38} />
       </RoundedBox>
@@ -164,20 +161,13 @@ function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div>
-          <span className="eyebrow">THREE.JS PHYSICS LAB</span>
-          <h1>Coin Flip</h1>
-        </div>
+        <div><span className="eyebrow">THREE.JS PHYSICS LAB</span><h1>Coin Flip</h1></div>
         <div className="stats"><span>FLIPS</span><strong>{flips}</strong></div>
       </header>
-
       <section className="game-card">
         <div className="viewport"><Scene running={running} speed={speed} onFinish={finish} /></div>
         <div className="hud">
-          <div className="result-box">
-            <span>RESULT</span>
-            <strong>{result ?? (running ? 'FLIPPING…' : 'READY')}</strong>
-          </div>
+          <div className="result-box"><span>RESULT</span><strong>{result ?? (running ? 'FLIPPING…' : 'READY')}</strong></div>
           <button className="flip-button" onClick={flip} disabled={running}>{running ? 'FLIPPING…' : 'FLIP COIN'}</button>
           <div className="speed-control">
             <div className="speed-label"><span>ANIMATION SPEED</span><strong>{speed}×</strong></div>
