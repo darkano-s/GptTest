@@ -41,7 +41,9 @@ function Face({ type }: { type: 'HEADS' | 'TAILS' }) {
         anchorY="middle"
         outlineWidth={0.018}
         outlineColor="#f7d878"
-        scale={isHeads ? [1, 1, 1] : [-1, 1, 1]}
+        // The entire coin rotates 180° to reveal tails. Flip the tails artwork 180°
+        // in its own face plane so the T is upright when the tails side is visible.
+        scale={isHeads ? [1, 1, 1] : [-1, -1, 1]}
       >
         {isHeads ? 'H' : 'T'}
       </Text>
