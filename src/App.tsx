@@ -41,8 +41,6 @@ function Face({ type }: { type: 'HEADS' | 'TAILS' }) {
         anchorY="middle"
         outlineWidth={0.018}
         outlineColor="#f7d878"
-        // The entire coin rotates 180° to reveal tails. Flip the tails artwork 180°
-        // in its own face plane so the T is upright when the tails side is visible.
         scale={isHeads ? [1, 1, 1] : [-1, -1, 1]}
       >
         {isHeads ? 'H' : 'T'}
@@ -124,6 +122,8 @@ function Scene({ running, speed, result, onFinish }: { running: boolean; speed: 
       <directionalLight position={[3, 5, 8]} intensity={2.5} />
       <directionalLight position={[-4, 1, 4]} intensity={1.2} />
       <spotLight position={[0, 1.5, 4]} target-position={[0, CENTER_Y, 0]} angle={0.55} penumbra={0.35} intensity={7} distance={12} castShadow />
+      <spotLight position={[-4, -3, 4]} target-position={[0, CENTER_Y, 0]} angle={0.65} penumbra={0.45} intensity={5} distance={12} />
+      <spotLight position={[4, -3, 4]} target-position={[0, CENTER_Y, 0]} angle={0.65} penumbra={0.45} intensity={5} distance={12} />
       <Coin running={running} speed={speed} result={result} onFinish={onFinish} />
     </Canvas>
   )
