@@ -18,6 +18,7 @@ const easeOut = (v: number) => 1 - Math.pow(1 - v, 3)
 
 function Coin({ running, speed, result, onFinish }: { running: boolean; speed: number; result: Exclude<Result, null> | null; onFinish: (result: Exclude<Result, null>) => void }) {
   const group = useRef<THREE.Group>(null)
+  const faceGroup = useRef<THREE.Group>(null)
   const elapsed = useRef(0)
   const wasRunning = useRef(false)
   const finished = useRef(false)
@@ -33,24 +34,27 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
 
   useFrame((_, delta) => {
     const coin = group.current
-    if (!coin || !running || !result || finished.current) return
+    const faces = faceGroup.current
+    if (!coin || !faces || !running || !result || finished.current) return
 
-    // Intentionally NOT physics. There is no gravity, collision, bounce, wobble,
-    // floor contact, or rigid-body simulation. This is one fixed scripted sequence.
+    // Pure scripted animation: no gravity, physics, collisions, bounce or platform.
     elapsed.current += Math.min(delta, 0.05) * speed
     const progress = clamp01(elapsed.current / DURATION)
     const moveT = easeOut(progress)
 
-    // Only two things happen: the coin drops toward the screen center and rotates.
+    // Drop straight to the center of the screen.
     coin.position.set(0, THREE.MathUtils.lerp(START_Y, CENTER_Y, moveT), 0)
 
+    // The physical coin is oriented with its local Y axis pointing toward the camera.
+    // The face group then rotates around that viewing axis. This guarantees that the
+    // final state shows a face, never the coin edge.
     const rotations = 4.5
-    const targetX = result === 'HEADS' ? 0 : Math.PI
-    coin.rotation.set(targetX + (1 - progress) * Math.PI * 2 * rotations, 0, 0)
+    const targetFaceRotation = result === 'HEADS' ? 0 : Math.PI
+    faces.rotation.z = targetFaceRotation + (1 - progress) * Math.PI * 2 * rotations
 
     if (progress >= 1) {
       coin.position.set(0, CENTER_Y, 0)
-      coin.rotation.set(targetX, 0, 0)
+      faces.rotation.z = targetFaceRotation
       finished.current = true
       onFinish(result)
     }
@@ -58,23 +62,28 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
 
   return (
     <group ref={group} position={[0, START_Y, 0]}>
-      <mesh>
-        <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, 96, 8]} />
-        <meshStandardMaterial color="#b67b22" metalness={0.96} roughness={0.19} />
-      </mesh>
-      <group position={[0, COIN_THICKNESS / 2 + 0.004, 0]}>
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.86, 96]} />
-          <meshStandardMaterial color="#f2c75b" metalness={0.92} roughness={0.16} side={THREE.DoubleSide} />
-        </mesh>
-        <Text position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.56} color="#795016" anchorX="center" anchorY="middle">H</Text>
-      </group>
-      <group position={[0, -COIN_THICKNESS / 2 - 0.004, 0]} rotation={[Math.PI, 0, 0]}>
-        <mesh rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.86, 96]} />
-          <meshStandardMaterial color="#d59a2f" metalness={0.9} roughness={0.2} side={THREE.DoubleSide} />
-        </mesh>
-        <Text position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.5} color="#744b12" anchorX="center" anchorY="middle">T</Text>
+      {/* Rotate the cylinder once so its circular faces point down the camera's Z axis. */}
+      <group rotation={[Math.PI / 2, 0, 0]}>
+        <group ref={faceGroup}>
+          <mesh>
+            <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, 96, 8]} />
+            <meshStandardMaterial color="#b67b22" metalness={0.96} roughness={0.19} />
+          </mesh>
+          <group position={[0, COIN_THICKNESS / 2 + 0.004, 0]}>
+            <mesh>
+              <circleGeometry args={[0.86, 96]} />
+              <meshStandardMaterial color="#f2c75b" metalness={0.92} roughness={0.16} side={THREE.DoubleSide} />
+            </mesh>
+            <Text position={[0, 0, 0.006]} rotation={[0, 0, 0]} fontSize={0.56} color="#795016" anchorX="center" anchorY="middle">H</Text>
+          </group>
+          <group position={[0, -COIN_THICKNESS / 2 - 0.004, 0]} rotation={[Math.PI, 0, 0]}>
+            <mesh>
+              <circleGeometry args={[0.86, 96]} />
+              <meshStandardMaterial color="#d59a2f" metalness={0.9} roughness={0.2} side={THREE.DoubleSide} />
+            </mesh>
+            <Text position={[0, 0, 0.006]} fontSize={0.5} color="#744b12" anchorX="center" anchorY="middle">T</Text>
+          </group>
+        </group>
       </group>
     </group>
   )
