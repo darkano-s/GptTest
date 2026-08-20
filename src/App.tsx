@@ -14,7 +14,7 @@ const COIN_RADIUS = 1
 const COIN_THICKNESS = 0.24
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
-const easeOut = (v: number) => 1 - Math.pow(1 - v, 3)
+const easeOutCubic = (v: number) => 1 - Math.pow(1 - v, 3)
 
 function Coin({ running, speed, result, onFinish }: { running: boolean; speed: number; result: Exclude<Result, null> | null; onFinish: (result: Exclude<Result, null>) => void }) {
   const group = useRef<THREE.Group>(null)
@@ -37,24 +37,23 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
     const faces = faceGroup.current
     if (!coin || !faces || !running || !result || finished.current) return
 
-    // Pure scripted animation: no gravity, physics, collisions, bounce or platform.
+    // Scripted animation only: no gravity, physics, collision, bounce, platform or wobble.
     elapsed.current += Math.min(delta, 0.05) * speed
     const progress = clamp01(elapsed.current / DURATION)
-    const moveT = easeOut(progress)
 
-    // Drop straight to the center of the screen.
-    coin.position.set(0, THREE.MathUtils.lerp(START_Y, CENTER_Y, moveT), 0)
+    // A smooth ease-out drop gives the coin a deliberate, controlled arrival at center.
+    coin.position.set(0, THREE.MathUtils.lerp(START_Y, CENTER_Y, easeOutCubic(progress)), 0)
 
-    // The physical coin is oriented with its local Y axis pointing toward the camera.
-    // The face group then rotates around that viewing axis. This guarantees that the
-    // final state shows a face, never the coin edge.
-    const rotations = 4.5
-    const targetFaceRotation = result === 'HEADS' ? 0 : Math.PI
-    faces.rotation.z = targetFaceRotation + (1 - progress) * Math.PI * 2 * rotations
+    // The cylinder's circular faces are normal to local Y. The parent rotates the coin
+    // once so its faces point toward the camera. The child rotates around that face normal.
+    const targetFace = result === 'HEADS' ? 0 : Math.PI
+    const turns = 5
+    const spinAngle = targetFace + (1 - progress) * Math.PI * 2 * turns
+    faces.rotation.y = spinAngle
 
     if (progress >= 1) {
       coin.position.set(0, CENTER_Y, 0)
-      faces.rotation.z = targetFaceRotation
+      faces.rotation.y = targetFace
       finished.current = true
       onFinish(result)
     }
@@ -62,26 +61,27 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
 
   return (
     <group ref={group} position={[0, START_Y, 0]}>
-      {/* Rotate the cylinder once so its circular faces point down the camera's Z axis. */}
       <group rotation={[Math.PI / 2, 0, 0]}>
         <group ref={faceGroup}>
           <mesh>
             <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, 96, 8]} />
             <meshStandardMaterial color="#b67b22" metalness={0.96} roughness={0.19} />
           </mesh>
-          <group position={[0, COIN_THICKNESS / 2 + 0.004, 0]}>
+
+          <group position={[0, COIN_THICKNESS / 2 + 0.006, 0]}>
             <mesh>
               <circleGeometry args={[0.86, 96]} />
               <meshStandardMaterial color="#f2c75b" metalness={0.92} roughness={0.16} side={THREE.DoubleSide} />
             </mesh>
-            <Text position={[0, 0, 0.006]} rotation={[0, 0, 0]} fontSize={0.56} color="#795016" anchorX="center" anchorY="middle">H</Text>
+            <Text position={[0, 0, 0.012]} fontSize={0.56} color="#6d430d" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#f9d878">H</Text>
           </group>
-          <group position={[0, -COIN_THICKNESS / 2 - 0.004, 0]} rotation={[Math.PI, 0, 0]}>
+
+          <group position={[0, -COIN_THICKNESS / 2 - 0.006, 0]} rotation={[Math.PI, 0, 0]}>
             <mesh>
               <circleGeometry args={[0.86, 96]} />
               <meshStandardMaterial color="#d59a2f" metalness={0.9} roughness={0.2} side={THREE.DoubleSide} />
             </mesh>
-            <Text position={[0, 0, 0.006]} fontSize={0.5} color="#744b12" anchorX="center" anchorY="middle">T</Text>
+            <Text position={[0, 0, 0.012]} fontSize={0.52} color="#70480f" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#efc35a">T</Text>
           </group>
         </group>
       </group>
