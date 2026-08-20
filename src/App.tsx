@@ -6,8 +6,8 @@ import './index.css'
 
 type Result = 'HEADS' | 'TAILS' | null
 
-const BASE_SPEED = 5
-const DURATION = 1.2
+const BASE_SPEED = 2
+const DURATION = 2.8
 const START_Y = 4.5
 const CENTER_Y = 0
 const COIN_RADIUS = 1
@@ -41,15 +41,12 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
     elapsed.current += Math.min(delta, 0.05) * speed
     const progress = clamp01(elapsed.current / DURATION)
 
-    // A smooth ease-out drop gives the coin a deliberate, controlled arrival at center.
     coin.position.set(0, THREE.MathUtils.lerp(START_Y, CENTER_Y, easeOutCubic(progress)), 0)
 
-    // The cylinder's circular faces are normal to local Y. The parent rotates the coin
-    // once so its faces point toward the camera. The child rotates around that face normal.
+    // Rotate slowly enough to clearly see the coin turning while it drops.
     const targetFace = result === 'HEADS' ? 0 : Math.PI
     const turns = 5
-    const spinAngle = targetFace + (1 - progress) * Math.PI * 2 * turns
-    faces.rotation.y = spinAngle
+    faces.rotation.y = targetFace + (1 - progress) * Math.PI * 2 * turns
 
     if (progress >= 1) {
       coin.position.set(0, CENTER_Y, 0)
@@ -67,7 +64,6 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
             <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, 96, 8]} />
             <meshStandardMaterial color="#b67b22" metalness={0.96} roughness={0.19} />
           </mesh>
-
           <group position={[0, COIN_THICKNESS / 2 + 0.006, 0]}>
             <mesh>
               <circleGeometry args={[0.86, 96]} />
@@ -75,7 +71,6 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
             </mesh>
             <Text position={[0, 0, 0.012]} fontSize={0.56} color="#6d430d" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#f9d878">H</Text>
           </group>
-
           <group position={[0, -COIN_THICKNESS / 2 - 0.006, 0]} rotation={[Math.PI, 0, 0]}>
             <mesh>
               <circleGeometry args={[0.86, 96]} />
@@ -93,9 +88,11 @@ function Scene({ running, speed, result, onFinish }: { running: boolean; speed: 
   return (
     <Canvas camera={{ position: [0, 0, 10], fov: 35 }} dpr={[1, 2]}>
       <color attach="background" args={['#06080c']} />
-      <ambientLight intensity={1.8} />
-      <directionalLight position={[3, 5, 8]} intensity={2.8} />
+      <ambientLight intensity={0.8} />
+      <directionalLight position={[3, 5, 8]} intensity={2.5} />
       <directionalLight position={[-4, 1, 4]} intensity={1.2} />
+      {/* Dedicated key light aimed directly at the coin's final face position. */}
+      <spotLight position={[0, 1.5, 4]} target-position={[0, CENTER_Y, 0]} angle={0.55} penumbra={0.35} intensity={7} distance={12} castShadow />
       <Coin running={running} speed={speed} result={result} onFinish={onFinish} />
     </Canvas>
   )
@@ -141,7 +138,7 @@ function App() {
           <div className="speed-control">
             <div className="speed-label"><span>ANIMATION SPEED</span><strong>{speed}×</strong></div>
             <input aria-label="Animation speed" type="range" min="1" max="4" step="1" value={speed / BASE_SPEED} onChange={(e) => setSpeed(Number(e.target.value) * BASE_SPEED)} />
-            <div className="speed-ticks"><span>5× BASE</span><span>20× FAST</span></div>
+            <div className="speed-ticks"><span>2× BASE</span><span>8× FAST</span></div>
           </div>
         </div>
       </section>
