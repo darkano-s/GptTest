@@ -18,7 +18,7 @@ const easeOutCubic = (v: number) => 1 - Math.pow(1 - v, 3)
 
 function Coin({ running, speed, result, onFinish }: { running: boolean; speed: number; result: Exclude<Result, null> | null; onFinish: (result: Exclude<Result, null>) => void }) {
   const group = useRef<THREE.Group>(null)
-  const faceGroup = useRef<THREE.Group>(null)
+  const coinRotation = useRef<THREE.Group>(null)
   const elapsed = useRef(0)
   const wasRunning = useRef(false)
   const finished = useRef(false)
@@ -34,27 +34,28 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
 
   useFrame((_, delta) => {
     const coin = group.current
-    const faces = faceGroup.current
-    if (!coin || !faces || !running || !result || finished.current) return
+    const rotation = coinRotation.current
+    if (!coin || !rotation || !running || !result || finished.current) return
 
     elapsed.current += Math.min(delta, 0.05) * speed
     const progress = clamp01(elapsed.current / DURATION)
 
-    // The only movement is a scripted vertical drop to the center.
+    // Scripted vertical drop only. There is no gravity, collision, bounce or physics.
     coin.position.set(0, THREE.MathUtils.lerp(START_Y, CENTER_Y, easeOutCubic(progress)), 0)
 
-    // IMPORTANT: CylinderGeometry's circular faces are perpendicular to LOCAL Y.
-    // The parent turns the whole coin so LOCAL Y becomes the camera-facing Z axis.
-    // The face artwork must therefore ALSO be perpendicular to local Y. The previous
-    // implementation used the default CircleGeometry orientation (normal Z), which
-    // created a second perpendicular-looking disc and caused the crossed-coin bug.
-    const targetFace = result === 'HEADS' ? 0 : Math.PI
+    // The coin's physical axis is LOCAL Y. The parent below rotates that axis to Z,
+    // toward the camera. Therefore the actual flip must happen around LOCAL X (a
+    // horizontal axis in the camera view), NOT around LOCAL Y/Z. Rotating around Z
+    // would merely spin the face like a record and is the source of the wrong-axis look.
+    const targetRotation = result === 'HEADS' ? 0 : Math.PI
     const turns = 5
-    faces.rotation.y = targetFace + (1 - progress) * Math.PI * 2 * turns
+    rotation.rotation.x = targetRotation + (1 - progress) * Math.PI * 2 * turns
+    rotation.rotation.y = 0
+    rotation.rotation.z = 0
 
     if (progress >= 1) {
       coin.position.set(0, CENTER_Y, 0)
-      faces.rotation.y = targetFace
+      rotation.rotation.set(targetRotation, 0, 0)
       finished.current = true
       onFinish(result)
     }
@@ -62,15 +63,17 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
 
   return (
     <group ref={group} position={[0, START_Y, 0]}>
-      {/* Orient the coin's local Y axis toward the camera. */}
+      {/* CylinderGeometry has its face normal on local Y. Rotate it so the face normal
+          points toward the camera along Z. */}
       <group rotation={[Math.PI / 2, 0, 0]}>
-        <group ref={faceGroup}>
+        {/* This group rotates around local X, which becomes the visible horizontal
+            flip axis after the parent orientation. */}
+        <group ref={coinRotation}>
           <mesh>
             <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, 96, 8]} />
             <meshStandardMaterial color="#b67b22" metalness={0.96} roughness={0.19} />
           </mesh>
 
-          {/* HEADS: CircleGeometry is rotated so its normal is local +Y, matching the cylinder face. */}
           <group position={[0, COIN_THICKNESS / 2 + 0.006, 0]}>
             <mesh rotation={[Math.PI / 2, 0, 0]}>
               <circleGeometry args={[0.86, 96]} />
@@ -79,7 +82,6 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
             <Text position={[0, 0, 0.012]} rotation={[Math.PI / 2, 0, 0]} fontSize={0.56} color="#6d430d" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#f9d878">H</Text>
           </group>
 
-          {/* TAILS: opposite local Y face, flipped so T is readable from the camera. */}
           <group position={[0, -COIN_THICKNESS / 2 - 0.006, 0]} rotation={[Math.PI, 0, 0]}>
             <mesh rotation={[Math.PI / 2, 0, 0]}>
               <circleGeometry args={[0.86, 96]} />
