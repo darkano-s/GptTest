@@ -42,24 +42,29 @@ function Face({ type }: { type: 'HEADS' | 'TAILS' }) {
   const isHeads = type === 'HEADS'
   const faceGeometry = useMemo(() => createSoftPolygon(0.87, 0.035), [])
   const letters = 'ONERING'.split('')
+  const faceZ = isHeads ? COIN_THICKNESS / 2 + 0.006 : -COIN_THICKNESS / 2 - 0.006
 
   useEffect(() => () => faceGeometry.dispose(), [faceGeometry])
 
+  // The coin geometry is created in the XY plane and extruded along Z.
+  // Therefore the face normal is Z. Keep all face artwork in XY as well.
+  // The previous extra 90° rotations put the artwork on a perpendicular plane,
+  // making the result look like two coins crossing through each other.
   return (
-    <group position={[0, isHeads ? COIN_THICKNESS / 2 + 0.006 : -COIN_THICKNESS / 2 - 0.006, 0]} rotation={isHeads ? [0, 0, 0] : [Math.PI, 0, 0]}>
-      <mesh geometry={faceGeometry} rotation={[Math.PI / 2, 0, 0]}>
+    <group position={[0, 0, faceZ]} rotation={isHeads ? [0, 0, 0] : [Math.PI, 0, 0]}>
+      <mesh geometry={faceGeometry}>
         <meshStandardMaterial color={isHeads ? '#e7b84e' : '#c8942d'} metalness={0.97} roughness={0.16} side={THREE.DoubleSide} />
       </mesh>
 
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.035]}>
+      <mesh position={[0, 0, 0.035]}>
         <ringGeometry args={[0.695, 0.765, COIN_SIDES]} />
         <meshStandardMaterial color="#6e4510" metalness={0.94} roughness={0.2} side={THREE.DoubleSide} />
       </mesh>
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.041]}>
+      <mesh position={[0, 0, 0.041]}>
         <ringGeometry args={[0.775, 0.825, COIN_SIDES]} />
         <meshStandardMaterial color="#f5ce67" metalness={0.94} roughness={0.14} side={THREE.DoubleSide} />
       </mesh>
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.045]}>
+      <mesh position={[0, 0, 0.045]}>
         <ringGeometry args={[0.565, 0.59, 64]} />
         <meshStandardMaterial color="#765016" metalness={0.9} roughness={0.18} side={THREE.DoubleSide} />
       </mesh>
@@ -72,7 +77,7 @@ function Face({ type }: { type: 'HEADS' | 'TAILS' }) {
             <Text
               key={`${letter}-${index}`}
               position={[Math.cos(angle) * radius, Math.sin(angle) * radius, 0]}
-              rotation={[Math.PI / 2, 0, angle + Math.PI / 2]}
+              rotation={[0, 0, angle + Math.PI / 2]}
               fontSize={0.105}
               color="#51330b"
               anchorX="center"
@@ -86,11 +91,11 @@ function Face({ type }: { type: 'HEADS' | 'TAILS' }) {
         })}
       </group>
 
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.052]}>
+      <mesh position={[0, 0, 0.052]}>
         <torusGeometry args={[0.34, 0.032, 8, 56]} />
         <meshStandardMaterial color="#f0c55c" metalness={0.96} roughness={0.14} />
       </mesh>
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.055]}>
+      <mesh position={[0, 0, 0.055]}>
         <torusGeometry args={[0.30, 0.012, 6, 48]} />
         <meshStandardMaterial color="#70470f" metalness={0.92} roughness={0.18} />
       </mesh>
@@ -98,7 +103,7 @@ function Face({ type }: { type: 'HEADS' | 'TAILS' }) {
       {Array.from({ length: COIN_SIDES }).map((_, index) => {
         const angle = (index / COIN_SIDES) * Math.PI * 2 + Math.PI / 14
         return (
-          <mesh key={index} position={[Math.cos(angle) * 0.605, Math.sin(angle) * 0.605, 0.058]} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh key={index} position={[Math.cos(angle) * 0.605, Math.sin(angle) * 0.605, 0.058]}>
             <sphereGeometry args={[0.028, 10, 8]} />
             <meshStandardMaterial color="#f4c85e" metalness={0.98} roughness={0.12} />
           </mesh>
@@ -107,7 +112,7 @@ function Face({ type }: { type: 'HEADS' | 'TAILS' }) {
 
       <Text
         position={[0, 0, 0.058]}
-        rotation={[Math.PI / 2, 0, 0]}
+        rotation={[0, 0, 0]}
         fontSize={isHeads ? 0.50 : 0.44}
         color="#70450b"
         anchorX="center"
@@ -166,14 +171,12 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
 
   return (
     <group ref={group} position={[0, START_Y, 0]}>
-      <group rotation={[Math.PI / 2, 0, 0]}>
-        <group ref={coinRotation}>
-          <mesh geometry={coinGeometry}>
-            <meshStandardMaterial color="#b47a1f" metalness={0.98} roughness={0.17} />
-          </mesh>
-          <Face type="HEADS" />
-          <Face type="TAILS" />
-        </group>
+      <group ref={coinRotation}>
+        <mesh geometry={coinGeometry}>
+          <meshStandardMaterial color="#b47a1f" metalness={0.98} roughness={0.17} />
+        </mesh>
+        <Face type="HEADS" />
+        <Face type="TAILS" />
       </group>
     </group>
   )
