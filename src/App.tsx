@@ -37,13 +37,17 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
     const faces = faceGroup.current
     if (!coin || !faces || !running || !result || finished.current) return
 
-    // Scripted animation only: no gravity, physics, collision, bounce, platform or wobble.
     elapsed.current += Math.min(delta, 0.05) * speed
     const progress = clamp01(elapsed.current / DURATION)
 
+    // The only movement is a scripted vertical drop to the center.
     coin.position.set(0, THREE.MathUtils.lerp(START_Y, CENTER_Y, easeOutCubic(progress)), 0)
 
-    // Rotate slowly enough to clearly see the coin turning while it drops.
+    // IMPORTANT: CylinderGeometry's circular faces are perpendicular to LOCAL Y.
+    // The parent turns the whole coin so LOCAL Y becomes the camera-facing Z axis.
+    // The face artwork must therefore ALSO be perpendicular to local Y. The previous
+    // implementation used the default CircleGeometry orientation (normal Z), which
+    // created a second perpendicular-looking disc and caused the crossed-coin bug.
     const targetFace = result === 'HEADS' ? 0 : Math.PI
     const turns = 5
     faces.rotation.y = targetFace + (1 - progress) * Math.PI * 2 * turns
@@ -58,25 +62,30 @@ function Coin({ running, speed, result, onFinish }: { running: boolean; speed: n
 
   return (
     <group ref={group} position={[0, START_Y, 0]}>
+      {/* Orient the coin's local Y axis toward the camera. */}
       <group rotation={[Math.PI / 2, 0, 0]}>
         <group ref={faceGroup}>
           <mesh>
             <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, 96, 8]} />
             <meshStandardMaterial color="#b67b22" metalness={0.96} roughness={0.19} />
           </mesh>
+
+          {/* HEADS: CircleGeometry is rotated so its normal is local +Y, matching the cylinder face. */}
           <group position={[0, COIN_THICKNESS / 2 + 0.006, 0]}>
-            <mesh>
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
               <circleGeometry args={[0.86, 96]} />
               <meshStandardMaterial color="#f2c75b" metalness={0.92} roughness={0.16} side={THREE.DoubleSide} />
             </mesh>
-            <Text position={[0, 0, 0.012]} fontSize={0.56} color="#6d430d" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#f9d878">H</Text>
+            <Text position={[0, 0, 0.012]} rotation={[Math.PI / 2, 0, 0]} fontSize={0.56} color="#6d430d" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#f9d878">H</Text>
           </group>
+
+          {/* TAILS: opposite local Y face, flipped so T is readable from the camera. */}
           <group position={[0, -COIN_THICKNESS / 2 - 0.006, 0]} rotation={[Math.PI, 0, 0]}>
-            <mesh>
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
               <circleGeometry args={[0.86, 96]} />
               <meshStandardMaterial color="#d59a2f" metalness={0.9} roughness={0.2} side={THREE.DoubleSide} />
             </mesh>
-            <Text position={[0, 0, 0.012]} fontSize={0.52} color="#70480f" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#efc35a">T</Text>
+            <Text position={[0, 0, 0.012]} rotation={[Math.PI / 2, 0, 0]} fontSize={0.52} color="#70480f" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#efc35a">T</Text>
           </group>
         </group>
       </group>
@@ -91,7 +100,6 @@ function Scene({ running, speed, result, onFinish }: { running: boolean; speed: 
       <ambientLight intensity={0.8} />
       <directionalLight position={[3, 5, 8]} intensity={2.5} />
       <directionalLight position={[-4, 1, 4]} intensity={1.2} />
-      {/* Dedicated key light aimed directly at the coin's final face position. */}
       <spotLight position={[0, 1.5, 4]} target-position={[0, CENTER_Y, 0]} angle={0.55} penumbra={0.35} intensity={7} distance={12} castShadow />
       <Coin running={running} speed={speed} result={result} onFinish={onFinish} />
     </Canvas>
