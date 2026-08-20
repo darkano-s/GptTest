@@ -6,15 +6,7 @@ import './index.css'
 
 type Result = 'HEADS' | 'TAILS' | null
 
-type PhysicsState = {
-  y: number
-  vy: number
-  angle: number
-  angularVelocity: number
-  bounceCount: number
-  settled: boolean
-  result: Exclude<Result, null>
-}
+type PhysicsState = { y: number; vy: number; angle: number; angularVelocity: number; bounceCount: number; settled: boolean; result: Exclude<Result, null> }
 
 const GRAVITY = -12.5
 const FLOOR_Y = 1.04
@@ -33,15 +25,7 @@ function Coin({ running, speed, onFinish }: { running: boolean; speed: number; o
   useEffect(() => {
     if (running && !lastRunning.current) {
       const outcome: Exclude<Result, null> = Math.random() < 0.5 ? 'HEADS' : 'TAILS'
-      state.current = {
-        y: 7,
-        vy: 0.8,
-        angle: 0,
-        angularVelocity: (19 + Math.random() * 5) * (Math.random() < 0.5 ? 1 : -1),
-        bounceCount: 0,
-        settled: false,
-        result: outcome,
-      }
+      state.current = { y: 7, vy: 0.8, angle: 0, angularVelocity: (19 + Math.random() * 5) * (Math.random() < 0.5 ? 1 : -1), bounceCount: 0, settled: false, result: outcome }
       setResult(outcome)
     }
     lastRunning.current = running
@@ -51,7 +35,6 @@ function Coin({ running, speed, onFinish }: { running: boolean; speed: number; o
     const coin = group.current
     const p = state.current
     if (!coin || !p || !running || p.settled) return
-
     const dt = Math.min(rawDelta, 1 / 60) * speed
     p.vy += GRAVITY * dt
     p.vy *= Math.exp(-AIR_DRAG * dt)
@@ -70,8 +53,6 @@ function Coin({ running, speed, onFinish }: { running: boolean; speed: number; o
         p.angularVelocity *= Math.max(0, 1 - 3.5 * dt)
         if (Math.abs(p.angularVelocity) < 0.08) {
           p.settled = true
-          // The coin is a cylinder whose circular faces are perpendicular to local Y.
-          // Flip around local X so the two faces never appear as a second perpendicular coin.
           p.angle = p.result === 'HEADS' ? 0 : Math.PI
           coin.rotation.set(p.angle, 0, 0)
           onFinish(p.result)
@@ -86,40 +67,34 @@ function Coin({ running, speed, onFinish }: { running: boolean; speed: number; o
 
   return (
     <group ref={group} position={[0, FLOOR_Y, 0]}>
-      {/* A single cylinder is the physical coin body. Its faces are on local +/-Y. */}
       <mesh castShadow receiveShadow>
         <cylinderGeometry args={[COIN_RADIUS, COIN_RADIUS, COIN_THICKNESS, 96, 8]} />
         <meshStandardMaterial color="#b67b22" metalness={0.96} roughness={0.19} />
       </mesh>
 
-      {/* Heads face: inset gold disc + raised rim + emblem. */}
-      <group position={[0, COIN_THICKNESS / 2 + 0.006, 0]}>
-        <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow>
-          <cylinderGeometry args={[0.86, 0.86, 0.035, 96]} />
-          <meshStandardMaterial color="#f2c75b" metalness={0.92} roughness={0.16} />
+      {/* Face decorations are flat discs, not cylinders. The coin body is the only thickness-bearing cylinder. */}
+      <group position={[0, COIN_THICKNESS / 2 + 0.004, 0]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.86, 96]} />
+          <meshStandardMaterial color="#f2c75b" metalness={0.92} roughness={0.16} side={THREE.FrontSide} />
         </mesh>
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.024, 0]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]}>
           <torusGeometry args={[0.68, 0.055, 12, 96]} />
           <meshStandardMaterial color="#a96e17" metalness={0.95} roughness={0.2} />
         </mesh>
-        <Text position={[0, 0.045, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.56} color="#795016" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#f8d878">
-          H
-        </Text>
+        <Text position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.56} color="#795016" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#f8d878">H</Text>
       </group>
 
-      {/* Tails face: darker inset and a clearly different engraved emblem. */}
-      <group position={[0, -COIN_THICKNESS / 2 - 0.006, 0]} rotation={[Math.PI, 0, 0]}>
+      <group position={[0, -COIN_THICKNESS / 2 - 0.004, 0]} rotation={[Math.PI, 0, 0]}>
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.86, 0.86, 0.035, 96]} />
-          <meshStandardMaterial color="#d59a2f" metalness={0.9} roughness={0.2} />
+          <circleGeometry args={[0.86, 96]} />
+          <meshStandardMaterial color="#d59a2f" metalness={0.9} roughness={0.2} side={THREE.FrontSide} />
         </mesh>
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.024, 0]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]}>
           <torusGeometry args={[0.68, 0.055, 12, 96]} />
           <meshStandardMaterial color="#8a5916" metalness={0.95} roughness={0.22} />
         </mesh>
-        <Text position={[0, 0.045, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.5} color="#744b12" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#efc35a">
-          T
-        </Text>
+        <Text position={[0, 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.5} color="#744b12" anchorX="center" anchorY="middle" outlineWidth={0.012} outlineColor="#efc35a">T</Text>
       </group>
     </group>
   )
@@ -155,25 +130,11 @@ function App() {
   const [result, setResult] = useState<Result>(null)
   const [flips, setFlips] = useState(0)
 
-  const flip = useCallback(() => {
-    if (running) return
-    setResult(null)
-    setRunning(true)
-  }, [running])
-
-  const finish = useCallback((outcome: Exclude<Result, null>) => {
-    setResult(outcome)
-    setFlips((n) => n + 1)
-    setRunning(false)
-  }, [])
+  const flip = useCallback(() => { if (!running) { setResult(null); setRunning(true) } }, [running])
+  const finish = useCallback((outcome: Exclude<Result, null>) => { setResult(outcome); setFlips((n) => n + 1); setRunning(false) }, [])
 
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.code === 'Space') {
-        event.preventDefault()
-        flip()
-      }
-    }
+    const onKey = (event: KeyboardEvent) => { if (event.code === 'Space') { event.preventDefault(); flip() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [flip])
