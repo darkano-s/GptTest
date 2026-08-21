@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 type Result = 'HEADS' | 'TAILS'
 
@@ -13,16 +13,12 @@ interface CoinControlsProps {
 
 export default function CoinControls({ result, running, flips, speed, onFlip, onSpeedChange }: CoinControlsProps) {
   const flip = () => {
-    if (running) return
-    onFlip(Math.random() < 0.5 ? 'HEADS' : 'TAILS')
+    if (!running) onFlip(Math.random() < 0.5 ? 'HEADS' : 'TAILS')
   }
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code === 'Space') {
-        event.preventDefault()
-        flip()
-      }
+      if (event.code === 'Space') { event.preventDefault(); flip() }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -30,49 +26,27 @@ export default function CoinControls({ result, running, flips, speed, onFlip, on
 
   return (
     <>
-      <header className="topbar">
+      <section className="card control-card">
         <div>
-          <span className="eyebrow">THREE.JS COIN FLIP</span>
-          <h1>Coin Flip</h1>
-        </div>
-        <div className="stats">
-          <span>FLIPS</span>
-          <strong>{flips}</strong>
-        </div>
-      </header>
-
-      <div className="hud">
-        <div className="result-box">
-          <span>RESULT</span>
-          <strong>{result ?? (running ? 'FLIPPING…' : 'READY')}</strong>
-        </div>
-
-        <button className="flip-button" onClick={flip} disabled={running}>
-          {running ? 'FLIPPING…' : 'FLIP COIN'}
-        </button>
-
-        <div className="speed-control">
-          <div className="speed-label">
-            <span>ANIMATION SPEED</span>
-            <strong>{speed}×</strong>
-          </div>
-          <input
-            aria-label="Animation speed"
-            type="range"
-            min="1"
-            max="4"
-            step="1"
-            value={speed / 2}
-            onChange={(event) => onSpeedChange(Number(event.target.value) * 2)}
-          />
-          <div className="speed-ticks">
-            <span>2× BASE</span>
-            <span>8× FAST</span>
+          <span className="eyebrow">CONTROL CENTER</span>
+          <h2 className="card-title">Flip the coin</h2>
+          <p className="card-copy">Choose the motion. The visualization handles the landing.</p>
+          <div className="result-panel">
+            <span>RESULT</span>
+            <strong>{result ?? (running ? 'FLIPPING…' : 'READY')}</strong>
           </div>
         </div>
-      </div>
-
-      <p className="hint">Press <kbd>SPACE</kbd> to flip</p>
+        <button className="flip-button" onClick={flip} disabled={running}>{running ? 'FLIPPING…' : 'FLIP COIN'}</button>
+        <div className="metric-row">
+          <div className="metric"><span>FLIPS</span><strong>{flips}</strong></div>
+          <div className="metric"><span>STATE</span><strong>{running ? 'LIVE' : 'IDLE'}</strong></div>
+        </div>
+      </section>
+      <section className="card speed-card">
+        <div className="speed-label"><span>ANIMATION SPEED</span><strong>{speed}×</strong></div>
+        <input aria-label="Animation speed" type="range" min="1" max="4" step="1" value={speed / 2} onChange={(event) => onSpeedChange(Number(event.target.value) * 2)} />
+        <div className="speed-ticks"><span>2× BASE</span><span>8× FAST</span></div>
+      </section>
     </>
   )
 }
