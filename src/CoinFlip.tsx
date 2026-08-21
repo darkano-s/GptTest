@@ -23,23 +23,40 @@ export default function CoinFlip() {
   }, [])
 
   return (
-    <section className="game-card">
-      <div className="viewport">
-        <CoinVisualization
+    <>
+      <header className="topbar">
+        <div className="brand">
+          <span className="brand-mark" />
+          <div>
+            <span className="eyebrow">PREMIUM COIN FLIP</span>
+            <h1>One Ring</h1>
+          </div>
+        </div>
+        <div className="stats"><span>FLIPS</span><strong>{flips}</strong></div>
+      </header>
+
+      <div className="bento">
+        <section className="card visual-card">
+          <span className="card-label">LIVE VISUALIZATION</span>
+          <div className="viewport">
+            <CoinVisualization
+              running={running}
+              speed={speed}
+              targetResult={targetResult}
+              onFinish={handleFinish}
+            />
+          </div>
+        </section>
+
+        <CoinControls
+          result={targetResult}
           running={running}
+          flips={flips}
           speed={speed}
-          targetResult={targetResult}
-          onFinish={handleFinish}
+          onFlip={handleFlip}
+          onSpeedChange={setSpeed}
         />
       </div>
-      <CoinControls
-        result={targetResult}
-        running={running}
-        flips={flips}
-        speed={speed}
-        onFlip={handleFlip}
-        onSpeedChange={setSpeed}
-      />
-    </section>
+    </>
   )
 }
